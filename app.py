@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from pandas_datareader import wb
+import wbgapi as wb
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
@@ -40,18 +40,26 @@ st.markdown('---')
 # ================================
 @st.cache_data
 def load_data():
-    # Load dữ liệu từ WB
-    df = wb.download(indicator=['NY.GDP.MKTP.KD.ZG', 'FM.LBL.BMNY.GD.ZS','FP.CPI.TOTL.ZG','FR.INR.RINR','NE.TRD.GNFS.ZS'], 
-                     country=['VNM'], start=2010, end=2024)
-    # Rút gọn tên cột
-    df.columns = ['GDP', 'M2', 'INF','R','TRADE']
+    # Trích xuất dữ liệu trực tiếp bằng World Bank API (chuẩn mới tương thích Pandas 3.0)
+    df = wb.data.DataFrame(['NY.GDP.MKTP.KD.ZG', 'FM.LBL.BMNY.GD.ZS','FP.CPI.TOTL.ZG','FR.INR.RINR','NE.TRD.GNFS.ZS'], 
+                           ['VNM'], time=range(2010, 2025))
     
-    # Rút gọn MultiIndex lấy năm
-    df.index = df.index.get_level_values('year')
+    # Xử lý xoay trục và làm sạch
+    df = df.T
+    df.index = df.index.str.replace('YR', '').astype(int)
+    df.index.name = 'year'
+    df = df.rename(columns={
+        'NY.GDP.MKTP.KD.ZG': 'GDP',
+        'FM.LBL.BMNY.GD.ZS': 'M2',
+        'FP.CPI.TOTL.ZG': 'INF',
+        'FR.INR.RINR': 'R',
+        'NE.TRD.GNFS.ZS': 'TRADE'
+    })
+    df = df[['GDP', 'M2', 'INF', 'R', 'TRADE']]
+    
     # Xử lý NaN
     df = df.fillna(df.mean())
     df.reset_index(inplace=True)
-    df['year'] = df['year'].astype(int)
     # Sắp xếp tăng dần theo năm
     df = df.sort_values(by='year').reset_index(drop=True)
     return df
